@@ -1,13 +1,4 @@
----
 
-# 🚀 Cross-Cloud SOC Auto-Remediation System
-
-**Production-Grade Cloud Security Automation (Azure + AWS)**
-
-## > ⚡ Detect → Respond → Remediate in **< 30 seconds**
-## > 🔐 Zero human intervention | 100% detection | 0% false positives
-
----
 
 ## 📌Cross-Cloud SOC Auto-Remediation System  (Overview)
 
