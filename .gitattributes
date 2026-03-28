@@ -1,0 +1,4 @@
+# Mark all YAML files as binary to prevent Jekyll parsing
+*.yml binary
+*.yaml binary
+.github/workflows/*.yml binary
