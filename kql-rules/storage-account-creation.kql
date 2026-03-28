@@ -1,0 +1,25 @@
+// Analytics Rule: Storage Account Creation
+// MITRE ATT&CK: TA0042 - Resource Development, T1583 - Acquire Infrastructure
+// Severity: High
+// Business Impact: Data exfiltration staging, malicious content hosting
+
+AzureActivity
+| where TimeGenerated > ago(10m)
+| where OperationNameValue == "MICROSOFT.STORAGE/STORAGEACCOUNTS/WRITE"
+| where ActivityStatusValue == "Success"
+| extend StorageAccountName = tostring(parse_json(Properties).resource)
+| extend ThreatCategory = "StorageAccountCreation"
+| extend AlertSeverity = "High"
+| extend IsOffHours = iff(hour_of_day(TimeGenerated) < 6 or hour_of_day(TimeGenerated) > 20, "YES", "NO")
+| project 
+    TimeGenerated,
+    Caller,
+    StorageAccountName,
+    ResourceGroup,
+    SubscriptionId,
+    CreatedBy = Caller,
+    SourceIP = CallerIpAddress,
+    IsOffHours,
+    ThreatCategory,
+    AlertSeverity
+| order by TimeGenerated desc

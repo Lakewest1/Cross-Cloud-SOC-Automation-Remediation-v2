@@ -1,0 +1,109 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "IAMKeyManagementTaggedOnly",
+      "Effect": "Allow",
+      "Action": [
+        "iam:ListAccessKeys",
+        "iam:UpdateAccessKey",
+        "iam:PutUserPolicy",
+        "iam:DeleteUserPolicy"
+      ],
+      "Resource": "arn:aws:iam::*:user/*",
+      "Condition": {
+        "StringEquals": {
+          "iam:ResourceTag/ManagedBy": "Sentinel"
+        }
+      }
+    },
+    {
+      "Sid": "IAMUserReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetUser",
+        "iam:GetUserPolicy",
+        "iam:ListUserPolicies",
+        "iam:ListUserTags"
+      ],
+      "Resource": "arn:aws:iam::*:user/*",
+      "Condition": {
+        "StringEquals": {
+          "iam:ResourceTag/ManagedBy": "Sentinel"
+        }
+      }
+    },
+    {
+      "Sid": "IAMAuditOnly",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetAccountSummary",
+        "iam:GetAccountAuthorizationDetails",
+        "iam:ListUsers",
+        "iam:ListRoles",
+        "sts:GetCallerIdentity"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SESVerifiedEmailsOnly",
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendEmail",
+        "ses:SendRawEmail"
+      ],
+      "Resource": [
+        "arn:aws:ses:us-east-1:*:identity/olamilake95@gmail.com",
+        "arn:aws:ses:us-east-1:*:identity/olamilake94@gmail.com"
+      ]
+    },
+    {
+      "Sid": "SESGetStatistics",
+      "Effect": "Allow",
+      "Action": [
+        "ses:GetSendStatistics",
+        "ses:GetSendQuota"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DynamoDBIdempotencyOnly",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "dynamodb:Scan"
+      ],
+      "Resource": "arn:aws:dynamodb:*:*:table/sentinel-remediation-log"
+    },
+    {
+      "Sid": "CloudWatchMetrics",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:PutMetricData",
+        "cloudwatch:GetMetricData",
+        "cloudwatch:ListMetrics"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "cloudwatch:namespace": "SentinelRemediation"
+        }
+      }
+    },
+    {
+      "Sid": "CloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": "arn:aws:logs:*:*:log-group:/aws/lambda/sentinel-iam-remediation:*"
+    }
+  ]
+}

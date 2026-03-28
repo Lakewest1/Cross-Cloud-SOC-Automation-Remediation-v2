@@ -1,0 +1,176 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "IAM Role and Policy for Sentinel Remediation Lambda Function",
+  
+  "Parameters": {
+    "LambdaFunctionName": {
+      "Type": "String",
+      "Default": "sentinel-iam-remediation",
+      "Description": "Name of the Lambda function"
+    },
+    "AccountId": {
+      "Type": "String",
+      "Description": "AWS Account ID"
+    }
+  },
+  
+  "Resources": {
+    "LambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "sentinel-remediation-lambda-role",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "SentinelRemediationInlinePolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "IAMKeyManagementTaggedOnly",
+                  "Effect": "Allow",
+                  "Action": [
+                    "iam:ListAccessKeys",
+                    "iam:UpdateAccessKey"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:iam::${AccountId}:user/*"
+                  },
+                  "Condition": {
+                    "StringEquals": {
+                      "iam:ResourceTag/ManagedBy": "Sentinel"
+                    }
+                  }
+                },
+                {
+                  "Sid": "SESVerifiedEmailsOnly",
+                  "Effect": "Allow",
+                  "Action": "ses:SendEmail",
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:aws:ses:us-east-1:${AccountId}:identity/olamilake95@gmail.com"
+                    },
+                    {
+                      "Fn::Sub": "arn:aws:ses:us-east-1:${AccountId}:identity/olamilake94@gmail.com"
+                    }
+                  ]
+                },
+                {
+                  "Sid": "DynamoDBIdempotencyOnly",
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:PutItem",
+                    "dynamodb:GetItem"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:dynamodb:us-east-1:${AccountId}:table/sentinel-remediation-log"
+                  }
+                },
+                {
+                  "Sid": "CloudWatchMetrics",
+                  "Effect": "Allow",
+                  "Action": "cloudwatch:PutMetricData",
+                  "Resource": "*",
+                  "Condition": {
+                    "StringEquals": {
+                      "cloudwatch:namespace": "SentinelRemediation"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "Cross-Cloud-SOC-Auto-Remediation"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "Sentinel"
+          },
+          {
+            "Key": "Environment",
+            "Value": "Production"
+          }
+        ]
+      }
+    },
+    
+    "LambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": "LambdaExecutionRole",
+      "Properties": {
+        "FunctionName": {"Ref": "LambdaFunctionName"},
+        "Runtime": "python3.12",
+        "Role": {"Fn::GetAtt": ["LambdaExecutionRole", "Arn"]},
+        "Handler": "handler.lambda_handler",
+        "Timeout": 30,
+        "MemorySize": 256,
+        "Environment": {
+          "Variables": {
+            "ACCOUNT_ID": {"Ref": "AccountId"},
+            "SES_FROM_EMAIL": "olamilake95@gmail.com",
+            "SES_TO_EMAILS": "ir-responder@gmail.com,olamilake95@gmail.com",
+            "IDEMPOTENCY_TABLE": "sentinel-remediation-log",
+            "AUTO_REMEDIATION": "true",
+            "ALLOWED_CALLER_ARNS": ""
+          }
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "Cross-Cloud-SOC-Auto-Remediation"
+          }
+        ]
+      }
+    },
+    
+    "LambdaVersion": {
+      "Type": "AWS::Lambda::Version",
+      "Properties": {
+        "FunctionName": {"Ref": "LambdaFunction"},
+        "Description": "Production version"
+      }
+    },
+    
+    "LambdaAlias": {
+      "Type": "AWS::Lambda::Alias",
+      "Properties": {
+        "FunctionName": {"Ref": "LambdaFunction"},
+        "FunctionVersion": {"Ref": "LambdaVersion"},
+        "Name": "prod"
+      }
+    }
+  },
+  
+  "Outputs": {
+    "LambdaRoleArn": {
+      "Description": "ARN of the Lambda execution role",
+      "Value": {"Fn::GetAtt": ["LambdaExecutionRole", "Arn"]}
+    },
+    "LambdaFunctionArn": {
+      "Description": "ARN of the Lambda function",
+      "Value": {"Fn::GetAtt": ["LambdaFunction", "Arn"]}
+    },
+    "LambdaFunctionName": {
+      "Description": "Name of the Lambda function",
+      "Value": {"Ref": "LambdaFunction"}
+    }
+  }
+}

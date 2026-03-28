@@ -1,0 +1,29 @@
+// Analytics Rule: Brute Force Detection (SigninLogs)
+// MITRE ATT&CK: TA0006 - Credential Access, T1110 - Brute Force
+// Severity: Medium
+// Business Impact: Account compromise, credential theft
+
+SigninLogs
+| where TimeGenerated > ago(1h)
+| where ResultType in ("50126", "50053")  // Invalid username/password, user locked
+| summarize 
+    FailedAttempts = count(),
+    FirstAttempt = min(TimeGenerated),
+    LastAttempt = max(TimeGenerated),
+    IPAddresses = make_set(IPAddress),
+    AppDisplayNames = make_set(AppDisplayName)
+    by UserPrincipalName, bin(TimeGenerated, 1h)
+| where FailedAttempts >= 4
+| extend ThreatCategory = "BruteForce"
+| extend AlertSeverity = "Medium"
+| project 
+    TimeGenerated = LastAttempt,
+    UserPrincipalName,
+    FailedAttempts,
+    FirstAttempt,
+    LastAttempt,
+    IPAddresses,
+    AppDisplayNames,
+    ThreatCategory,
+    AlertSeverity
+| order by FailedAttempts desc

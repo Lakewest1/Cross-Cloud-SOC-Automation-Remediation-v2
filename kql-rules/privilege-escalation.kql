@@ -1,0 +1,31 @@
+// Analytics Rule: High-Risk Role Assignment (Privilege Escalation)
+// MITRE ATT&CK: TA0004 - Privilege Escalation, T1078 - Valid Accounts
+// Severity: High
+// Business Impact: Full subscription takeover, data breach potential
+
+AzureActivity
+| where TimeGenerated > ago(1h)
+| where OperationNameValue == "MICROSOFT.AUTHORIZATION/ROLEASSIGNMENTS/WRITE"
+| where ActivityStatusValue == "Success"
+| extend RoleName = tostring(parse_json(Properties).displayName)
+| extend TargetUser = tostring(parse_json(Properties).principalId)
+| extend RiskLevel = case(
+    RoleName has_any ("Owner", "Global Admin", "Security Admin"), "CRITICAL",
+    RoleName has_any ("Contributor", "User Access Admin"), "HIGH",
+    "MEDIUM"
+)
+| extend ThreatCategory = "PrivilegeEscalation"
+| extend AlertSeverity = RiskLevel
+| project 
+    TimeGenerated,
+    Caller,
+    RoleName,
+    TargetUser,
+    ResourceGroup,
+    RiskLevel,
+    ThreatCategory,
+    SourceIP = CallerIpAddress,
+    UserType = Caller,
+    ResourceId = _ResourceId,
+    SubscriptionId = _SubscriptionId
+| order by RiskLevel desc, TimeGenerated desc

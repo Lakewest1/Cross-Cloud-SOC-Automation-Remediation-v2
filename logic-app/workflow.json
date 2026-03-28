@@ -1,0 +1,197 @@
+## Manual Configuration via Portal  ##
+Step 1: Create Logic App
+Navigate to Azure Portal → Create a resource
+
+Search "Logic App"
+
+Click Create
+
+Configure:
+
+Subscription: Your subscription
+
+Resource Group: SOC-lab-01
+
+Logic App name: AWS-Sentinel-Email-Better
+
+Region: East US
+
+Plan type: Consumption
+
+Click Review + Create → Create
+
+Step 2: Add Sentinel Incident Trigger
+Open the Logic App → Logic app designer
+
+Search "Sentinel"
+
+Select When a Microsoft Sentinel incident is created
+
+Configure:
+
+Workspace: soclawlab
+
+Severity Filter: High, Critical
+
+Status Filter: New
+
+Step 3: Add Condition - Check Incident Status
+Click + New step
+
+Search "Condition"
+
+Configure:
+
+text
+@triggerBody()?['object']?['properties']?['status']
+is not equal to
+Closed
+Step 4: Add Severity Check (Inside TRUE branch)
+Inside TRUE branch, add another Condition
+
+Configure:
+
+text
+@triggerBody()?['object']?['properties']?['severity']
+is equal to
+High
+OR
+@triggerBody()?['object']?['properties']?['severity']
+is equal to
+Critical
+Step 5: Add Update Incident Status (Inside severity TRUE branch)
+Click Add an action
+
+Search "Sentinel"
+
+Select Update incident
+
+Configure:
+
+Workspace: soclawlab
+
+Incident ID: @{triggerBody()?['object']?['properties']?['incidentNumber']}
+
+Status: In Progress
+
+Owner: security-automation@soclab.com
+
+Step 6: Add Add Incident Tags
+Click Add an action
+
+Search "Sentinel"
+
+Select Add incident tags
+
+Configure:
+
+Workspace: soclawlab
+
+Incident ID: @{triggerBody()?['object']?['properties']?['incidentNumber']}
+
+Tags:
+
+auto-remediation
+
+cross-cloud
+
+critical-incident
+
+Step 7: Add Send Email Action
+Click Add an action
+
+Search "Outlook"
+
+Select Send an email (V2)
+
+Configure:
+
+To: ir-responder@gmail.com; olamilake95@gmail.com
+
+Subject: 🚨 CRITICAL INCIDENT - @{triggerBody()?['object']?['properties']?['title']}
+
+Body: (HTML template from workflow.json)
+
+Step 8: Add HTTP Action to Call AWS API Gateway
+Click Add an action
+
+Search "HTTP"
+
+Select HTTP
+
+Configure:
+
+Method: POST
+
+URI: Your API Gateway URL (e.g., https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/prod/remediate)
+
+Headers:
+
+Content-Type: application/json
+
+Body:
+
+json
+{
+  "incident_id": "@{triggerBody()?['object']?['properties']?['incidentNumber']}",
+  "incident_type": "@{triggerBody()?['object']?['properties']?['title']}",
+  "severity": "@{triggerBody()?['object']?['properties']?['severity']}",
+  "threat_type": "@{triggerBody()?['object']?['properties']?['additionalData']?['customDetails']?['ThreatCategory'][0]}",
+  "source_ip": "@{triggerBody()?['object']?['properties']?['additionalData']?['customDetails']?['SourceIP'][0]}",
+  "username": "@{triggerBody()?['object']?['properties']?['additionalData']?['customDetails']?['UserType'][0]}",
+  "aws_region": "@{triggerBody()?['object']?['properties']?['additionalData']?['customDetails']?['AWSRegion'][0]}",
+  "actions_detected": "@{triggerBody()?['object']?['properties']?['additionalData']?['customDetails']?['ActionsDetected'][0]}"
+}
+Step 9: Add Condition to Process Lambda Response
+Click Add an action after HTTP
+
+Add Condition
+
+Configure:
+
+text
+@outputs('HTTP')?['statusCode']
+is equal to
+200
+Step 10: Add Success Comment (TRUE branch)
+Inside TRUE branch, add Add incident comment action
+
+Configure:
+
+Workspace: soclawlab
+
+Incident ID: @{triggerBody()?['object']?['properties']?['incidentNumber']}
+
+Message:
+
+text
+✅ Auto-Remediation Successful
+
+Lambda Response: @{outputs('HTTP')?['body']}
+
+Actions Performed:
+- IAM access keys disabled
+- Email alert sent
+- Idempotency record created
+
+Response Time: <30 seconds
+Step 11: Add Failure Comment (FALSE branch)
+Inside FALSE branch, add Add incident comment action
+
+Configure:
+
+Message:
+
+text
+❌ Auto-Remediation Failed
+
+Error: HTTP @{outputs('HTTP')?['statusCode']}
+Response: @{outputs('HTTP')?['body']}
+
+Manual intervention required.
+Step 12: Save and Test
+Click Save in the top menu
+
+Run Trigger → Run
+
+Verify the workflow in Runs history

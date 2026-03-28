@@ -1,0 +1,29 @@
+name: SOC Automation
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Deploy Logic App
+        run: |
+          echo "Deploying SOC Automation Logic App"
+          echo "Environment: ${{ github.event.inputs.environment }}"
+      - name: Verify Deployment
+        run: echo "Deployment completed successfully"

@@ -1,0 +1,33 @@
+// Analytics Rule: Suspicious Blob/Website Upload
+// MITRE ATT&CK: TA0011 - Command & Control, T1102 - Web Service
+// Severity: Medium
+// Business Impact: Phishing site hosting, C2 beacon infrastructure
+
+AzureActivity
+| where TimeGenerated > ago(10m)
+| where OperationNameValue contains "BLOBSERVICES/CONTAINERS/WRITE"
+| where ActivityStatusValue == "Success"
+| extend BlobName = tostring(parse_json(Properties).blob)
+| extend ContainerName = tostring(parse_json(Properties).container)
+| extend ThreatCategory = case(
+    BlobName has_any (".html", ".htm", ".php", ".asp"), "Phishing",
+    BlobName has_any ("c2", "beacon", "command", "payload"), "C2",
+    "SuspiciousUpload"
+)
+| extend AlertSeverity = case(
+    ThreatCategory == "Phishing", "High",
+    ThreatCategory == "C2", "Critical",
+    "Medium"
+)
+| project 
+    TimeGenerated,
+    Caller,
+    Resource,
+    ResourceGroup,
+    ContainerName,
+    BlobName,
+    ThreatCategory,
+    AlertSeverity,
+    SourceIP = CallerIpAddress,
+    UserType = Caller
+| order by TimeGenerated desc

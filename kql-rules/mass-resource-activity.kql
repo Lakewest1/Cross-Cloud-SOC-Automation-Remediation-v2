@@ -1,0 +1,32 @@
+// Analytics Rule: Mass Resources Creation & Deletion
+// MITRE ATT&CK: TA0042 - Resource Development, T1583 - Acquire Infrastructure
+// Severity: High
+// Business Impact: Cryptojacking, unexpected cloud spend
+
+AzureActivity
+| where TimeGenerated > ago(30m)
+| where OperationNameValue contains "WRITE" or OperationNameValue contains "DELETE"
+| where OperationNameValue !contains "ROLEASSIGNMENTS"
+| where ActivityStatusValue == "Success"
+| extend ResourceAction = iff(OperationNameValue contains "DELETE", "DELETE", "CREATE/UPDATE")
+| summarize 
+    ActionCount = count(),
+    Resources = make_set(Resource),
+    Operations = make_set(OperationNameValue),
+    IPAddresses = make_set(CallerIpAddress)
+    by Caller, ResourceGroup, ResourceAction, bin(TimeGenerated, 30m)
+| where ActionCount >= 2
+| extend ThreatCategory = "MassResourceActivity"
+| extend AlertSeverity = "High"
+| project 
+    TimeGenerated,
+    Caller,
+    ResourceGroup,
+    ResourceAction,
+    ActionCount,
+    Resources,
+    Operations,
+    IPAddresses,
+    ThreatCategory,
+    AlertSeverity
+| order by ActionCount desc
